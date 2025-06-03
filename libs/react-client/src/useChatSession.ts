@@ -54,10 +54,13 @@ import { OutputAudioChunk } from './types/audio';
 
 import { ChainlitContext } from './context';
 import type { IToken } from './useChatData';
+import { useMcpInitialization } from './useMcpInitialization';
 
 const useChatSession = () => {
   const client = useContext(ChainlitContext);
   const sessionId = useRecoilValue(sessionIdState);
+
+  useMcpInitialization();
 
   const [session, setSession] = useRecoilState(sessionState);
   const setIsAiSpeaking = useSetRecoilState(isAiSpeakingState);
@@ -135,10 +138,12 @@ const useChatSession = () => {
       });
 
       socket.on('connect', () => {
+        console.log("socket connect");
         socket.emit('connection_successful');
         setSession((s) => ({ ...s!, error: false }));
         setMcps((prev) =>
           prev.map((mcp) => {
+            console.log(`socket connect ${mcp.name} ${mcp.command}`);
             const promise =
               mcp.clientType === 'sse'
                 ? client.connectSseMCP(sessionId, mcp.name, mcp.url!)

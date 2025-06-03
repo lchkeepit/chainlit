@@ -67,6 +67,7 @@ export const McpAddForm = ({
     setIsLoading(true);
 
     if (serverType === 'stdio') {
+      console.log("addMcp");
       toast.promise(
         apiClient
           .connectStdioMCP(sessionId, serverName, serverCommand)

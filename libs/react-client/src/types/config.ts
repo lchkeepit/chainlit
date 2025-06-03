@@ -67,6 +67,14 @@ export interface IChainlitConfig {
     edit_message?: boolean;
     mcp?: {
       enabled?: boolean;
+      config_file?: string;
+      connections?: Array<{
+        name: string;
+        clientType: 'stdio' | 'sse';
+        fullCommand?: string;
+        url?: string;
+        env?: Record<string, string>;
+      }>;
       sse?: {
         enabled?: boolean;
       };

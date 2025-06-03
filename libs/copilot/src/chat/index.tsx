@@ -9,6 +9,7 @@ export default function ChatWrapper() {
   const { sendMessage } = useChatInteract();
   useEffect(() => {
     if (session?.socket?.connected) return;
+    console.log("[Chat] socket connect");
     connect({
       // @ts-expect-error window typing
       transports: window.transports,
