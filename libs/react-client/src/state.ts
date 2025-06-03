@@ -215,11 +215,7 @@ export const currentThreadIdState = atom<string | undefined>({
   default: undefined
 });
 
-const mcpInitializationEffect: AtomEffect<IMcp[]> = ({
-  setSelf,
-  onSet,
-  getPromise
-}) => {
+const mcpStorageEffect: AtomEffect<IMcp[]> = ({ setSelf, onSet }) => {
   // Initialize from localStorage first
   const savedValue = localStorage.getItem('mcp_storage_key');
   console.log('mcp_storage_key', savedValue);
@@ -232,29 +228,6 @@ const mcpInitializationEffect: AtomEffect<IMcp[]> = ({
         error
       );
     }
-  } else {
-    // If no localStorage data, initialize from config
-    console.log('configState', configState.toJSON());
-    getPromise(configState)
-      .then((config) => {
-        console.log('config', config);
-        if (config?.features?.mcp?.initial_connections) {
-          const initialConnections: IMcp[] =
-            config.features.mcp.initial_connections.map((conn) => ({
-              name: conn.name,
-              clientType: conn.clientType,
-              command: conn.fullCommand,
-              url: conn.url,
-              env: conn.env,
-              tools: [],
-              status: 'connecting' as const
-            }));
-          setSelf(initialConnections);
-        }
-      })
-      .catch(() => {
-        // Config not available, keep empty array as default
-      });
   }
 
   // Subscribe to state changes and update localStorage
@@ -270,5 +243,5 @@ const mcpInitializationEffect: AtomEffect<IMcp[]> = ({
 export const mcpState = atom<IMcp[]>({
   key: 'Mcp',
   default: [],
-  effects: [mcpInitializationEffect]
+  effects: [mcpStorageEffect]
 });

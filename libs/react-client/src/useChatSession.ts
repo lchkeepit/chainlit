@@ -54,6 +54,7 @@ import { OutputAudioChunk } from './types/audio';
 
 import { ChainlitContext } from './context';
 import type { IToken } from './useChatData';
+import { useMcpInitialization } from './useMcpInitialization';
 
 const useChatSession = () => {
   const client = useContext(ChainlitContext);
@@ -85,6 +86,8 @@ const useChatSession = () => {
 
   const [currentThreadId, setCurrentThreadId] =
     useRecoilState(currentThreadIdState);
+
+  useMcpInitialization();
 
   // Use currentThreadId as thread id in websocket header
   useEffect(() => {
@@ -144,19 +147,43 @@ const useChatSession = () => {
                 ? client.connectSseMCP(sessionId, mcp.name, mcp.url!)
                 : client.connectStdioMCP(sessionId, mcp.name, mcp.command!);
             promise
-              .then(async ({ success, mcp }) => {
-                setMcps((prev) =>
-                  prev.map((existingMcp) => {
+              .then(async ({ success, mcp: responseMcp }) => {
+                setMcps((prev) => {
+                  const updatedMcps = prev.map((existingMcp) => {
                     if (existingMcp.name === mcp.name) {
                       return {
                         ...existingMcp,
-                        status: success ? 'connected' : 'failed',
-                        tools: mcp ? mcp.tools : existingMcp.tools
+                        status: success ? ('connected' as const) : ('failed' as const),
+                        tools: responseMcp ? responseMcp.tools : existingMcp.tools
                       };
                     }
                     return existingMcp;
-                  })
-                );
+                  });
+
+                  // If connection was successful, ensure it's stored in localStorage
+                  if (success) {
+                    const existsInConfig = prev.some(existingMcp => existingMcp.name === mcp.name);
+                    if (!existsInConfig) {
+                      console.log('Adding new MCP connection to config:', mcp);
+                      const newConnection = {
+                        name: mcp.name,
+                        clientType: mcp.clientType,
+                        command: mcp.command,
+                        url: mcp.url,
+                        env: mcp.env,
+                        tools: responseMcp ? responseMcp.tools : [],
+                        status: 'connected' as const
+                      };
+                      updatedMcps.push(newConnection);
+                      
+                      // Update localStorage with the new connection
+                      localStorage.setItem('mcp_storage_key', JSON.stringify(updatedMcps));
+                      console.log('Updated mcp_storage_key with new connection:', newConnection);
+                    }
+                  }
+
+                  return updatedMcps;
+                });
               })
               .catch(() => {
                 setMcps((prev) =>
@@ -164,14 +191,14 @@ const useChatSession = () => {
                     if (existingMcp.name === mcp.name) {
                       return {
                         ...existingMcp,
-                        status: 'failed'
+                        status: 'failed' as const
                       };
                     }
                     return existingMcp;
                   })
                 );
               });
-            return { ...mcp, status: 'connecting' };
+            return { ...mcp, status: 'connecting' as const };
           })
         );
       });

@@ -1182,6 +1182,9 @@ async def connect_mcp(
             # Call the callback
             await config.code.on_mcp_connect(mcp_connection, mcp_session)
 
+            # Update config file if specified
+            await _update_mcp_config_file(payload)
+
         except Exception as e:
             raise HTTPException(
                 status_code=400,
@@ -1209,6 +1212,67 @@ async def connect_mcp(
             },
         }
     )
+
+
+async def _update_mcp_config_file(payload: ConnectMCPRequest):
+    """Update the MCP config file with a new connection if it doesn't already exist."""
+    if not config.features.mcp.config_file:
+        logger.info("No MCP config file specified, skipping file update")
+        return
+
+    mcp_file_path = config.features.mcp.config_file
+    if not os.path.isabs(mcp_file_path):
+        mcp_file_path = os.path.join(config.root, mcp_file_path)
+
+    try:
+        # Read existing config file
+        mcp_config_data = {}
+        if os.path.exists(mcp_file_path):
+            with open(mcp_file_path, encoding="utf-8") as f:
+                mcp_config_data = json.load(f)
+
+        # Initialize mcpServers if it doesn't exist
+        if "mcpServers" not in mcp_config_data:
+            mcp_config_data["mcpServers"] = {}
+
+        # Check if connection already exists
+        if payload.name in mcp_config_data["mcpServers"]:
+            logger.info(f"MCP connection '{payload.name}' already exists in config file")
+            return
+
+        # Add new connection based on client type
+        if payload.clientType == "stdio":
+            # Parse command and arguments
+            command_parts = payload.fullCommand.split()
+            command = command_parts[0] if command_parts else ""
+            args = command_parts[1:] if len(command_parts) > 1 else []
+
+            new_connection = {
+                "command": command,
+                "args": args,
+                "env": {}
+            }
+        elif payload.clientType == "sse":
+            new_connection = {
+                "url": payload.url,
+                "env": {}
+            }
+        else:
+            logger.warning(f"Unknown client type: {payload.clientType}")
+            return
+
+        # Add the new connection
+        mcp_config_data["mcpServers"][payload.name] = new_connection
+
+        # Write updated config back to file
+        os.makedirs(os.path.dirname(mcp_file_path), exist_ok=True)
+        with open(mcp_file_path, "w", encoding="utf-8") as f:
+            json.dump(mcp_config_data, f, indent=2, ensure_ascii=False)
+
+        logger.info(f"Added new MCP connection '{payload.name}' to config file: {mcp_file_path}")
+
+    except Exception as e:
+        logger.error(f"Error updating MCP config file {mcp_file_path}: {e}")
 
 
 @router.delete("/mcp")
