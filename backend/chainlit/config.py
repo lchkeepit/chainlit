@@ -116,6 +116,12 @@ edit_message = true
     # Sample rate of the audio
     sample_rate = 24000
 
+[features.mcp]
+    # Path to file containing initial MCP connections configuration
+    # The file should be in JSON format with an array of connection objects
+    # Example: config_file = "./mcp-connections.json"
+    # config_file = "./mcp-connections.json"
+
 [features.mcp.sse]
     enabled = true
 
@@ -261,6 +267,10 @@ class McpFeature(DataClassJsonMixin):
     enabled: bool = False
     sse: McpSseFeature = Field(default_factory=McpSseFeature)
     stdio: McpStdioFeature = Field(default_factory=McpStdioFeature)
+    # Path to file containing initial MCP connections configuration
+    config_file: Optional[str] = None
+    # Loaded initial connections (populated from config_file)
+    initial_connections: Optional[List[Dict[str, Any]]] = None
 
 
 @dataclass()
@@ -508,6 +518,7 @@ def load_module(target: str, force_refresh: bool = False):
 
 def load_settings():
     with open(config_file, "rb") as f:
+        logger.info(f"Loading config file: {config_file}")
         toml_dict = tomli.load(f)
         # Load project settings
         project_config = toml_dict.get("project", {})
@@ -528,6 +539,63 @@ def load_settings():
         )
 
         features_settings = FeaturesSettings(**features_settings)
+
+        # Load MCP connections from external file if specified
+        if features_settings.mcp and features_settings.mcp.config_file:
+            mcp_file_path = features_settings.mcp.config_file
+            logger.info(f"Loading MCP config file: {mcp_file_path}")
+            # Handle relative paths
+            if not os.path.isabs(mcp_file_path):
+                mcp_file_path = os.path.join(APP_ROOT, mcp_file_path)
+
+            try:
+                if os.path.exists(mcp_file_path):
+                    with open(mcp_file_path, encoding="utf-8") as mcp_file:
+                        mcp_config_data = json.load(mcp_file)
+                        initial_connections = []
+
+                        # Handle new mcpServers format
+                        if "mcpServers" in mcp_config_data:
+                            mcp_servers = mcp_config_data["mcpServers"]
+                            for server_name, server_config in mcp_servers.items():
+                                # Skip disabled servers
+                                if server_config.get("disabled", False):
+                                    continue
+
+                                # Build the full command
+                                command = server_config.get("command", "")
+                                args = server_config.get("args", [])
+
+                                if args:
+                                    full_command = f"{command} {' '.join(args)}"
+                                else:
+                                    full_command = command
+
+                                # Convert to expected format
+                                connection = {
+                                    "name": server_name,
+                                    "clientType": "stdio",  # All command-based servers are stdio
+                                    "fullCommand": full_command,
+                                    "env": server_config.get("env", {}),
+                                }
+                                initial_connections.append(connection)
+                                logger.info(
+                                    f"Loaded MCP connection from {mcp_file_path}: {connection}"
+                                )
+
+                        # Handle legacy array format (backward compatibility)
+                        elif isinstance(mcp_config_data, list):
+                            initial_connections = mcp_config_data
+
+                        # Update the mcp config with loaded connections
+                        features_settings.mcp.initial_connections = initial_connections
+                        logger.info(
+                            f"Loaded {len(initial_connections)} MCP connections from {mcp_file_path}"
+                        )
+                else:
+                    logger.warning(f"MCP config file not found: {mcp_file_path}")
+            except Exception as e:
+                logger.error(f"Error loading MCP config file {mcp_file_path}: {e}")
 
         ui_settings = UISettings(**ui_settings)
 

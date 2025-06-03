@@ -215,34 +215,60 @@ export const currentThreadIdState = atom<string | undefined>({
   default: undefined
 });
 
-const localStorageEffect =
-  <T>(key: string): AtomEffect<T> =>
-  ({ setSelf, onSet }) => {
-    // When the atom is first initialized, try to get its value from localStorage
-    const savedValue = localStorage.getItem(key);
-    if (savedValue != null) {
-      try {
-        setSelf(JSON.parse(savedValue));
-      } catch (error) {
-        console.error(
-          `Error parsing localStorage value for key "${key}":`,
-          error
-        );
-      }
+const mcpInitializationEffect: AtomEffect<IMcp[]> = ({
+  setSelf,
+  onSet,
+  getPromise
+}) => {
+  // Initialize from localStorage first
+  const savedValue = localStorage.getItem('mcp_storage_key');
+  console.log('mcp_storage_key', savedValue);
+  if (savedValue != null && savedValue.length > 0) {
+    try {
+      setSelf(JSON.parse(savedValue));
+    } catch (error) {
+      console.error(
+        `Error parsing localStorage value for mcp_storage_key:`,
+        error
+      );
     }
+  } else {
+    // If no localStorage data, initialize from config
+    console.log('configState', configState.toJSON());
+    getPromise(configState)
+      .then((config) => {
+        console.log('config', config);
+        if (config?.features?.mcp?.initial_connections) {
+          const initialConnections: IMcp[] =
+            config.features.mcp.initial_connections.map((conn) => ({
+              name: conn.name,
+              clientType: conn.clientType,
+              command: conn.fullCommand,
+              url: conn.url,
+              env: conn.env,
+              tools: [],
+              status: 'connecting' as const
+            }));
+          setSelf(initialConnections);
+        }
+      })
+      .catch(() => {
+        // Config not available, keep empty array as default
+      });
+  }
 
-    // Subscribe to state changes and update localStorage
-    onSet((newValue, _, isReset) => {
-      if (isReset) {
-        localStorage.removeItem(key);
-      } else {
-        localStorage.setItem(key, JSON.stringify(newValue));
-      }
-    });
-  };
+  // Subscribe to state changes and update localStorage
+  onSet((newValue, _, isReset) => {
+    if (isReset) {
+      localStorage.removeItem('mcp_storage_key');
+    } else {
+      localStorage.setItem('mcp_storage_key', JSON.stringify(newValue));
+    }
+  });
+};
 
 export const mcpState = atom<IMcp[]>({
   key: 'Mcp',
   default: [],
-  effects: [localStorageEffect<IMcp[]>('mcp_storage_key')]
+  effects: [mcpInitializationEffect]
 });
