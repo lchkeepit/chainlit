@@ -1244,12 +1244,12 @@ async def _update_mcp_config_file(payload: ConnectMCPRequest):
 
         # Add new connection based on client type
         if payload.clientType == "stdio":
-            # Parse command and arguments
-            command_parts = payload.fullCommand.split()
-            command = command_parts[0] if command_parts else ""
-            args = command_parts[1:] if len(command_parts) > 1 else []
+            # Use validate_mcp_command to properly parse command and environment
+            from chainlit.mcp import validate_mcp_command
 
-            new_connection = {"command": command, "args": args, "env": {}}
+            env_from_cmd, command, args = validate_mcp_command(payload.fullCommand)
+
+            new_connection = {"command": command, "args": args, "env": env_from_cmd}
         elif payload.clientType == "sse":
             new_connection = {"url": payload.url, "env": {}}
         else:
@@ -1267,6 +1267,32 @@ async def _update_mcp_config_file(payload: ConnectMCPRequest):
         logger.info(
             f"Added new MCP connection '{payload.name}' to config file: {mcp_file_path}"
         )
+
+        # Update in-memory config with the new connection
+        if config.features.mcp.initial_connections is None:
+            config.features.mcp.initial_connections = []
+
+        # Add connection to in-memory config if not already present
+        connection_exists = False
+        for conn in config.features.mcp.initial_connections:
+            if conn.get("name") == payload.name:
+                connection_exists = True
+                break
+
+        if not connection_exists:
+            new_in_memory_connection = {
+                "name": payload.name,
+                "clientType": payload.clientType,
+                "fullCommand": payload.fullCommand
+                if payload.clientType == "stdio"
+                else None,
+                "url": payload.url if payload.clientType == "sse" else None,
+                "env": env_from_cmd if payload.clientType == "stdio" else {},
+            }
+            config.features.mcp.initial_connections.append(new_in_memory_connection)
+            logger.info(
+                f"Added new MCP connection '{payload.name}' to in-memory config"
+            )
 
     except Exception as e:
         logger.error(f"Error updating MCP config file {mcp_file_path}: {e}")
@@ -1357,6 +1383,18 @@ async def _remove_mcp_from_config_file(connection_name: str):
         logger.info(
             f"Removed MCP connection '{connection_name}' from config file: {mcp_file_path}"
         )
+
+        # Also update the in-memory config
+        if config.features.mcp.initial_connections:
+            # Remove the connection from in-memory configuration
+            config.features.mcp.initial_connections = [
+                conn
+                for conn in config.features.mcp.initial_connections
+                if conn.get("name") != connection_name
+            ]
+            logger.info(
+                f"Removed MCP connection '{connection_name}' from in-memory config"
+            )
 
     except Exception as e:
         logger.error(
