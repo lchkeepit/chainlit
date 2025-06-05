@@ -1237,7 +1237,9 @@ async def _update_mcp_config_file(payload: ConnectMCPRequest):
 
         # Check if connection already exists
         if payload.name in mcp_config_data["mcpServers"]:
-            logger.info(f"MCP connection '{payload.name}' already exists in config file")
+            logger.info(
+                f"MCP connection '{payload.name}' already exists in config file"
+            )
             return
 
         # Add new connection based on client type
@@ -1247,16 +1249,9 @@ async def _update_mcp_config_file(payload: ConnectMCPRequest):
             command = command_parts[0] if command_parts else ""
             args = command_parts[1:] if len(command_parts) > 1 else []
 
-            new_connection = {
-                "command": command,
-                "args": args,
-                "env": {}
-            }
+            new_connection = {"command": command, "args": args, "env": {}}
         elif payload.clientType == "sse":
-            new_connection = {
-                "url": payload.url,
-                "env": {}
-            }
+            new_connection = {"url": payload.url, "env": {}}
         else:
             logger.warning(f"Unknown client type: {payload.clientType}")
             return
@@ -1269,7 +1264,9 @@ async def _update_mcp_config_file(payload: ConnectMCPRequest):
         with open(mcp_file_path, "w", encoding="utf-8") as f:
             json.dump(mcp_config_data, f, indent=2, ensure_ascii=False)
 
-        logger.info(f"Added new MCP connection '{payload.name}' to config file: {mcp_file_path}")
+        logger.info(
+            f"Added new MCP connection '{payload.name}' to config file: {mcp_file_path}"
+        )
 
     except Exception as e:
         logger.error(f"Error updating MCP config file {mcp_file_path}: {e}")
@@ -1308,6 +1305,9 @@ async def disconnect_mcp(
                 pass
             del session.mcp_sessions[payload.name]
 
+            # Remove from config file if specified
+            await _remove_mcp_from_config_file(payload.name)
+
         except Exception as e:
             raise HTTPException(
                 status_code=400,
@@ -1315,6 +1315,53 @@ async def disconnect_mcp(
             )
 
     return JSONResponse(content={"success": True})
+
+
+async def _remove_mcp_from_config_file(connection_name: str):
+    """Remove an MCP connection from the config file."""
+    if not config.features.mcp.config_file:
+        logger.info("No MCP config file specified, skipping file update")
+        return
+
+    mcp_file_path = config.features.mcp.config_file
+    if not os.path.isabs(mcp_file_path):
+        mcp_file_path = os.path.join(config.root, mcp_file_path)
+
+    try:
+        # Check if config file exists
+        if not os.path.exists(mcp_file_path):
+            logger.info(f"MCP config file does not exist: {mcp_file_path}")
+            return
+
+        # Read existing config file
+        with open(mcp_file_path, encoding="utf-8") as f:
+            mcp_config_data = json.load(f)
+
+        # Check if mcpServers section exists
+        if "mcpServers" not in mcp_config_data:
+            logger.info("No mcpServers section found in config file")
+            return
+
+        # Check if connection exists
+        if connection_name not in mcp_config_data["mcpServers"]:
+            logger.info(f"MCP connection '{connection_name}' not found in config file")
+            return
+
+        # Remove the connection
+        del mcp_config_data["mcpServers"][connection_name]
+
+        # Write updated config back to file
+        with open(mcp_file_path, "w", encoding="utf-8") as f:
+            json.dump(mcp_config_data, f, indent=2, ensure_ascii=False)
+
+        logger.info(
+            f"Removed MCP connection '{connection_name}' from config file: {mcp_file_path}"
+        )
+
+    except Exception as e:
+        logger.error(
+            f"Error removing MCP connection from config file {mcp_file_path}: {e}"
+        )
 
 
 @router.post("/project/file")
