@@ -10,16 +10,8 @@ export const useMcpInitialization = () => {
   const [mcpConnections, setMcpConnections] = useRecoilState(mcpState);
 
   useEffect(() => {
-    // Check if localStorage is empty and config has initial connections
-    const savedValue = localStorage.getItem('mcp_storage_key');
-    const hasStoredConnections =
-      savedValue && savedValue.length > 0 && savedValue !== '[]';
-
-    if (
-      config?.features?.mcp?.initial_connections &&
-      !hasStoredConnections &&
-      mcpConnections.length === 0
-    ) {
+    // Always override localStorage with remote config data when available
+    if (config?.features?.mcp?.initial_connections) {
       console.log('config', config);
       const initialConnections: IMcp[] =
         config.features.mcp.initial_connections.map((conn) => ({
@@ -33,22 +25,22 @@ export const useMcpInitialization = () => {
         }));
 
       console.log(
-        'Setting initial MCP connections from config:',
+        'Overriding MCP connections with remote config:',
         initialConnections
       );
       setMcpConnections(initialConnections);
 
-      // Explicitly update localStorage to ensure it's saved
+      // Always update localStorage to match remote config
       localStorage.setItem(
         'mcp_storage_key',
         JSON.stringify(initialConnections)
       );
       console.log(
-        'Updated mcp_storage_key in localStorage:',
+        'Overrode mcp_storage_key in localStorage with remote config:',
         initialConnections
       );
     }
-  }, [config, mcpConnections.length, setMcpConnections]);
+  }, [config, setMcpConnections]);
 
   return { mcpConnections };
 };
