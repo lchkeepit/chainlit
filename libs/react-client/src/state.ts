@@ -217,6 +217,19 @@ export const currentThreadIdState = atom<string | undefined>({
 
 const mcpStorageEffect: AtomEffect<IMcp[]> = ({ onSet }) => {
   // Don't initialize from localStorage - always use remote config
+  //   const storedValue = localStorage.getItem('mcp_storage_key');
+  //   if (storedValue != null) {
+  //     try {
+  //       const parsedValue = JSON.parse(storedValue);
+  //       if (Array.isArray(parsedValue)) {
+  //         console.log('Initialized MCP state from localStorage:', parsedValue);
+  //         setSelf(parsedValue);
+  //       }
+  //     } catch (error) {
+  //       console.error('Failed to parse stored MCP connections:', error);
+  //     }
+  //   }
+
   // Only subscribe to state changes and update localStorage
   onSet((newValue, _, isReset) => {
     if (isReset) {

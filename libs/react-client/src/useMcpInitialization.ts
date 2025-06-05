@@ -4,12 +4,13 @@ import { useRecoilState } from 'recoil';
 import { mcpState } from './state';
 import { IMcp } from './types';
 import { useConfig } from './useConfig';
+import { useChatSession } from './useChatSession';
 
 export const useMcpInitialization = () => {
   const { config } = useConfig();
   const [mcpConnections, setMcpConnections] = useRecoilState(mcpState);
 
-  useEffect(() => {
+    useEffect(() => {
     // Always override localStorage with remote config data when available
     if (config?.features?.mcp?.initial_connections) {
       console.log('config', config);

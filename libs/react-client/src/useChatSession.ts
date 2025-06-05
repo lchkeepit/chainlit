@@ -137,6 +137,48 @@ const useChatSession = () => {
         };
       });
 
+      // socket.on('connect', () => {
+      //   socket.emit('connection_successful');
+      //   setSession((s) => ({ ...s!, error: false }));
+      //   setMcps((prev) =>
+      //     prev.map((mcp) => {
+      //       const promise =
+      //         mcp.clientType === 'sse'
+      //           ? client.connectSseMCP(sessionId, mcp.name, mcp.url!)
+      //           : client.connectStdioMCP(sessionId, mcp.name, mcp.command!);
+      //       promise
+      //         .then(async ({ success, mcp }) => {
+      //           setMcps((prev) =>
+      //             prev.map((existingMcp) => {
+      //               if (existingMcp.name === mcp.name) {
+      //                 return {
+      //                   ...existingMcp,
+      //                   status: success ? 'connected' : 'failed',
+      //                   tools: mcp ? mcp.tools : existingMcp.tools
+      //                 };
+      //               }
+      //               return existingMcp;
+      //             })
+      //           );
+      //         })
+      //         .catch(() => {
+      //           setMcps((prev) =>
+      //             prev.map((existingMcp) => {
+      //               if (existingMcp.name === mcp.name) {
+      //                 return {
+      //                   ...existingMcp,
+      //                   status: 'failed'
+      //                 };
+      //               }
+      //               return existingMcp;
+      //             })
+      //           );
+      //         });
+      //       return { ...mcp, status: 'connecting' };
+      //     })
+      //   );
+      // });
+
       socket.on('connect', () => {
         socket.emit('connection_successful');
         setSession((s) => ({ ...s!, error: false }));
@@ -147,14 +189,14 @@ const useChatSession = () => {
                 ? client.connectSseMCP(sessionId, mcp.name, mcp.url!)
                 : client.connectStdioMCP(sessionId, mcp.name, mcp.command!);
             promise
-              .then(async ({ success, mcp: responseMcp }) => {
+              .then(async ({ success, mcp }) => {
                 setMcps((prev) => {
                   const updatedMcps = prev.map((existingMcp) => {
                     if (existingMcp.name === mcp.name) {
                       return {
                         ...existingMcp,
                         status: success ? ('connected' as const) : ('failed' as const),
-                        tools: responseMcp ? responseMcp.tools : existingMcp.tools
+                        tools: mcp ? mcp.tools : existingMcp.tools
                       };
                     }
                     return existingMcp;
@@ -171,7 +213,7 @@ const useChatSession = () => {
                         command: mcp.command,
                         url: mcp.url,
                         env: mcp.env,
-                        tools: responseMcp ? responseMcp.tools : [],
+                        tools: mcp ? mcp.tools : [],
                         status: 'connected' as const
                       };
                       updatedMcps.push(newConnection);
