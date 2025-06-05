@@ -1396,6 +1396,9 @@ async def _remove_mcp_from_config_file(connection_name: str):
                 f"Removed MCP connection '{connection_name}' from in-memory config"
             )
 
+            # Notify all clients to reload and get the updated config
+            await sio.emit("reload", {})
+
     except Exception as e:
         logger.error(
             f"Error removing MCP connection from config file {mcp_file_path}: {e}"

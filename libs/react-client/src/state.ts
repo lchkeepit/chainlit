@@ -216,8 +216,6 @@ export const currentThreadIdState = atom<string | undefined>({
 });
 
 const mcpStorageEffect: AtomEffect<IMcp[]> = ({ onSet }) => {
-  // Don't initialize from localStorage - always use remote config
-  // Only subscribe to state changes and update localStorage
   onSet((newValue, _, isReset) => {
     if (isReset) {
       localStorage.removeItem('mcp_storage_key');
