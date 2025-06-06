@@ -1182,8 +1182,9 @@ async def connect_mcp(
             # Call the callback
             await config.code.on_mcp_connect(mcp_connection, mcp_session)
 
-            # Update config file if specified
+            # Update config file and in-memory config
             await _update_mcp_config_file(payload)
+            await _update_mcp_in_memory_config(payload)
 
         except Exception as e:
             raise HTTPException(
@@ -1268,11 +1269,18 @@ async def _update_mcp_config_file(payload: ConnectMCPRequest):
             f"Added new MCP connection '{payload.name}' to config file: {mcp_file_path}"
         )
 
-        # Update in-memory config with the new connection
+    except Exception as e:
+        logger.error(f"Error updating MCP config file {mcp_file_path}: {e}")
+
+
+async def _update_mcp_in_memory_config(payload: ConnectMCPRequest):
+    """Update the in-memory MCP configuration with a new connection."""
+    try:
+        # Initialize connections list if needed
         if config.features.mcp.initial_connections is None:
             config.features.mcp.initial_connections = []
 
-        # Add connection to in-memory config if not already present
+        # Check if connection already exists in memory
         connection_exists = False
         for conn in config.features.mcp.initial_connections:
             if conn.get("name") == payload.name:
@@ -1280,6 +1288,13 @@ async def _update_mcp_config_file(payload: ConnectMCPRequest):
                 break
 
         if not connection_exists:
+            # For stdio clients, extract environment variables from command
+            env_from_cmd = {}
+            if payload.clientType == "stdio":
+                from chainlit.mcp import validate_mcp_command
+                env_from_cmd, _, _ = validate_mcp_command(payload.fullCommand)
+
+            # Create new in-memory connection
             new_in_memory_connection = {
                 "name": payload.name,
                 "clientType": payload.clientType,
@@ -1293,9 +1308,11 @@ async def _update_mcp_config_file(payload: ConnectMCPRequest):
             logger.info(
                 f"Added new MCP connection '{payload.name}' to in-memory config"
             )
+        else:
+            logger.info(f"MCP connection '{payload.name}' already exists in memory")
 
     except Exception as e:
-        logger.error(f"Error updating MCP config file {mcp_file_path}: {e}")
+        logger.error(f"Error updating MCP in-memory config: {e}")
 
 
 @router.delete("/mcp")
@@ -1331,8 +1348,9 @@ async def disconnect_mcp(
                 pass
             del session.mcp_sessions[payload.name]
 
-            # Remove from config file if specified
+            # Remove from config file and in-memory config
             await _remove_mcp_from_config_file(payload.name)
+            await _remove_mcp_from_in_memory_config(payload.name)
 
         except Exception as e:
             raise HTTPException(
@@ -1384,22 +1402,42 @@ async def _remove_mcp_from_config_file(connection_name: str):
             f"Removed MCP connection '{connection_name}' from config file: {mcp_file_path}"
         )
 
-        # Also update the in-memory config
-        if config.features.mcp.initial_connections:
-            # Remove the connection from in-memory configuration
-            config.features.mcp.initial_connections = [
-                conn
-                for conn in config.features.mcp.initial_connections
-                if conn.get("name") != connection_name
-            ]
-            logger.info(
-                f"Removed MCP connection '{connection_name}' from in-memory config"
-            )
-
     except Exception as e:
         logger.error(
             f"Error removing MCP connection from config file {mcp_file_path}: {e}"
         )
+
+
+async def _remove_mcp_from_in_memory_config(connection_name: str):
+    """Remove an MCP connection from the in-memory configuration."""
+    try:
+        # Check if in-memory connections exist
+        if not config.features.mcp.initial_connections:
+            logger.info("No in-memory MCP connections to remove")
+            return
+
+        # Check if connection exists in memory
+        connection_exists = any(
+            conn.get("name") == connection_name
+            for conn in config.features.mcp.initial_connections
+        )
+
+        if not connection_exists:
+            logger.info(f"MCP connection '{connection_name}' not found in memory")
+            return
+
+        # Remove the connection from in-memory configuration
+        config.features.mcp.initial_connections = [
+            conn
+            for conn in config.features.mcp.initial_connections
+            if conn.get("name") != connection_name
+        ]
+        logger.info(
+            f"Removed MCP connection '{connection_name}' from in-memory config"
+        )
+
+    except Exception as e:
+        logger.error(f"Error removing MCP connection from in-memory config: {e}")
 
 
 @router.post("/project/file")
