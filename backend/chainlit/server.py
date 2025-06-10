@@ -1113,7 +1113,7 @@ async def connect_mcp(
             raise HTTPException(
                 status_code=401,
             )
-
+    # mcp_enabled = config.features.mcp.enabled
     mcp_enabled = config.code.on_mcp_connect is not None
     if mcp_enabled:
         if payload.name in session.mcp_sessions:

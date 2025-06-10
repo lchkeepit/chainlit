@@ -2,9 +2,8 @@ import json
 import os
 import site
 import sys
-from os.path import expanduser
-import sys
 from importlib import util
+from os.path import expanduser
 from pathlib import Path
 from typing import (
     TYPE_CHECKING,
@@ -542,74 +541,32 @@ def load_settings():
 
         features_settings = FeaturesSettings(**features_settings)
 
-        # Load MCP connections from external file if specified
-        if features_settings.mcp and features_settings.mcp.config_file:
-            mcp_file_path = features_settings.mcp.config_file
-            logger.info(f"Loading MCP config file: {mcp_file_path}")
-            # Expand tilde to user's home directory
-            if mcp_file_path.startswith("~"):
-                mcp_file_path = expanduser(mcp_file_path)
-            # Handle relative paths
-            elif not os.path.isabs(mcp_file_path):
-                mcp_file_path = os.path.join(APP_ROOT, mcp_file_path)
-
-            try:
-                if os.path.exists(mcp_file_path):
-                    with open(mcp_file_path, encoding="utf-8") as mcp_file:
-                        mcp_config_data = json.load(mcp_file)
-                        connections = []
-
-                        # Handle new mcpServers format
-                        if "mcpServers" in mcp_config_data:
-                            mcp_servers = mcp_config_data["mcpServers"]
-                            for server_name, server_config in mcp_servers.items():
-                                # Skip disabled servers
-                                if server_config.get("disabled", False):
-                                    continue
-
-                                # Build the full command
-                                command = server_config.get("command", "")
-                                args = server_config.get("args", [])
-
-                                if args:
-                                    full_command = f"{command} {' '.join(args)}"
-                                else:
-                                    full_command = command
-
-                                # Convert to expected format
-                                connection = {
-                                    "name": server_name,
-                                    "clientType": "stdio",  # All command-based servers are stdio
-                                    "fullCommand": full_command,
-                                    "env": server_config.get("env", {}),
-                                }
-                                connections.append(connection)
-                                logger.info(
-                                    f"Loaded MCP connection from {mcp_file_path}: {connection}"
-                                )
-
-                        # Handle legacy array format (backward compatibility)
-                        elif isinstance(mcp_config_data, list):
-                            connections = mcp_config_data
-
-                        # Update the mcp config with loaded connections
-                        features_settings.mcp.connections = connections
-                        logger.info(
-                            f"Loaded {len(connections)} MCP connections from {mcp_file_path}"
-                        )
-                else:
-                    logger.warning(f"MCP config file not found: {mcp_file_path}")
-            except Exception as e:
-                logger.error(f"Error loading MCP config file {mcp_file_path}: {e}")
-
         # Process UI paths that might contain tilde
-        if ui_settings.get("custom_css") and isinstance(ui_settings["custom_css"], str) and ui_settings["custom_css"].startswith("~"):
+        if (
+            ui_settings.get("custom_css")
+            and isinstance(ui_settings["custom_css"], str)
+            and ui_settings["custom_css"].startswith("~")
+        ):
             ui_settings["custom_css"] = expanduser(ui_settings["custom_css"])
-        if ui_settings.get("custom_js") and isinstance(ui_settings["custom_js"], str) and ui_settings["custom_js"].startswith("~"):
+        if (
+            ui_settings.get("custom_js")
+            and isinstance(ui_settings["custom_js"], str)
+            and ui_settings["custom_js"].startswith("~")
+        ):
             ui_settings["custom_js"] = expanduser(ui_settings["custom_js"])
-        if ui_settings.get("login_page_image") and isinstance(ui_settings["login_page_image"], str) and ui_settings["login_page_image"].startswith("~"):
-            ui_settings["login_page_image"] = expanduser(ui_settings["login_page_image"])
-        if ui_settings.get("custom_build") and isinstance(ui_settings["custom_build"], str) and ui_settings["custom_build"].startswith("~"):
+        if (
+            ui_settings.get("login_page_image")
+            and isinstance(ui_settings["login_page_image"], str)
+            and ui_settings["login_page_image"].startswith("~")
+        ):
+            ui_settings["login_page_image"] = expanduser(
+                ui_settings["login_page_image"]
+            )
+        if (
+            ui_settings.get("custom_build")
+            and isinstance(ui_settings["custom_build"], str)
+            and ui_settings["custom_build"].startswith("~")
+        ):
             ui_settings["custom_build"] = expanduser(ui_settings["custom_build"])
 
         ui_settings = UISettings(**ui_settings)
@@ -622,6 +579,67 @@ def load_settings():
             "project": project_settings,
             "code": code_settings,
         }
+
+
+def load_mcp_config(features_settings):
+    # Load MCP connections from external file if specified
+    mcp_file_path = features_settings.mcp.config_file
+    logger.info(f"Loading MCP config file: {mcp_file_path}")
+    # Expand tilde to user's home directory
+    if mcp_file_path.startswith("~"):
+        mcp_file_path = expanduser(mcp_file_path)
+    # Handle relative paths
+    elif not os.path.isabs(mcp_file_path):
+        mcp_file_path = os.path.join(APP_ROOT, mcp_file_path)
+
+    try:
+        if os.path.exists(mcp_file_path):
+            with open(mcp_file_path, encoding="utf-8") as mcp_file:
+                mcp_config_data = json.load(mcp_file)
+                connections = []
+
+                # Handle new mcpServers format
+                if "mcpServers" in mcp_config_data:
+                    mcp_servers = mcp_config_data["mcpServers"]
+                    for server_name, server_config in mcp_servers.items():
+                        # Skip disabled servers
+                        if server_config.get("disabled", False):
+                            continue
+
+                        # Build the full command
+                        command = server_config.get("command", "")
+                        args = server_config.get("args", [])
+
+                        if args:
+                            full_command = f"{command} {' '.join(args)}"
+                        else:
+                            full_command = command
+
+                        # Convert to expected format
+                        connection = {
+                            "name": server_name,
+                            "clientType": "stdio",  # All command-based servers are stdio
+                            "fullCommand": full_command,
+                            "env": server_config.get("env", {}),
+                        }
+                        connections.append(connection)
+                        logger.info(
+                            f"Loaded MCP connection from {mcp_file_path}: {connection}"
+                        )
+
+                # Handle legacy array format (backward compatibility)
+                elif isinstance(mcp_config_data, list):
+                    connections = mcp_config_data
+
+                # Update the mcp config with loaded connections
+                features_settings.mcp.connections = connections
+                logger.info(
+                    f"Loaded {len(connections)} MCP connections from {mcp_file_path}"
+                )
+        else:
+            logger.warning(f"MCP config file not found: {mcp_file_path}")
+    except Exception as e:
+        logger.error(f"Error loading MCP config file {mcp_file_path}: {e}")
 
 
 def reload_config():

@@ -39,6 +39,8 @@ const McpButton = ({ disabled }: Props) => {
   const allowStdio = !!config?.features.mcp?.stdio?.enabled;
   const allowMcp = !!config?.features.mcp?.enabled;
 
+  console.log(`MCP:${allowMcp} STDIO:${allowStdio} SSE:${allowSse}`)
+
   if (!allowMcp || (!allowSse && !allowStdio)) return null;
 
   const connectedMcps = mcps.filter((mcp) => mcp.status === 'connected');
