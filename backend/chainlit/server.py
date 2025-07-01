@@ -1149,7 +1149,7 @@ async def connect_mcp(
 
                 env_from_cmd, command, args = validate_mcp_command(payload.fullCommand)
                 mcp_connection = StdioMcpConnection(  # type: ignore[no-redef]
-                    command=command, args=args, name=payload.name
+                    command=command, args=args, env=env_from_cmd, name=payload.name
                 )  # type: StdioMcpConnection
 
                 env = get_default_environment()

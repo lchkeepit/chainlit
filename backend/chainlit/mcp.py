@@ -9,6 +9,7 @@ class StdioMcpConnection(BaseModel):
     name: str
     command: str
     args: list[str]
+    env: dict[str, str]
     clientType: Literal["stdio"] = "stdio"
 
 
